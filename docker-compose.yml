@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  flask-api:
+    build: ./flask-api
+    ports:
+      - "5000:5000"
+    networks:
+      - monitoring
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+
+  node-api:
+    build: ./node-api
+    ports:
+      - "4000:4000"
+    networks:
+      - monitoring
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    volumes:
+      - ./otel-collector/otel-config.yaml:/etc/otel/config.yaml
+    command: ["--config", "/etc/otel/config.yaml"]
+    ports:
+      - "4317:4317"  # GRPC
+      - "4318:4318"  # HTTP
+    networks:
+      - monitoring
+
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+    networks:
+      - monitoring
+    depends_on:
+      - loki
+
+networks:
+  monitoring:
